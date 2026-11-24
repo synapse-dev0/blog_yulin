@@ -32,6 +32,7 @@
   <div class="micro-token-row">
     <button id="micro-token-save" class="micro-send" type="button">保存</button>
     <button id="micro-token-clear" class="micro-compose-btn" type="button">清除</button>
+    <button id="micro-diag" class="micro-compose-btn" type="button">检测权限</button>
     <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">去创建一个</a>
   </div>
 </section>
@@ -115,13 +116,65 @@
     setToken(v);
     tokenInput.value = "";
     showToken(false);
-    say("Token 已保存在这台设备的浏览器里", "ok");
+    say("Token 已保存（末尾 " + v.slice(-4) + "），可以点「检测权限」验一下", "ok");
   });
   tokenClear.addEventListener("click", function () {
     setToken("");
     tokenInput.value = "";
     say("已清除本机保存的 Token", "ok");
   });
+
+  // 只读诊断：不创建、不修改任何内容
+  function diagnose() {
+    var tok = getToken();
+    if (!tok) { say("先保存 Token 再检测", "err"); return; }
+    var H = { "Authorization": "Bearer " + tok, "Accept": "application/vnd.github+json" };
+    say("检测中…");
+    var out = [];
+    var hasWrite = null;
+
+    fetch("https://api.github.com/user", { headers: H }).then(function (r) {
+      if (r.status === 401) { throw new Error("Token 无效或已过期（401）"); }
+      return r.json().then(function (d) {
+        out.push("账号 " + d.login + (d.login === REPO.split("/")[0] ? "" : "（不是仓库所有者）"));
+        return fetch("https://api.github.com/repos/" + REPO, { headers: H });
+      });
+    }).then(function (r) {
+      out.push("仓库" + (r.ok ? "可见" : "不可见 " + r.status));
+      return fetch("https://api.github.com/repos/" + REPO + "/issues?per_page=1", { headers: H });
+    }).then(function (r) {
+      out.push("Issues" + (r.ok ? "可读" : "不可读 " + r.status));
+      // 对不存在的 issue 发 PATCH：没有写权限是 403，有写权限是 404，不会产生任何副作用
+      return fetch("https://api.github.com/repos/" + REPO + "/issues/999999999", {
+        method: "PATCH",
+        headers: {
+          "Authorization": "Bearer " + tok,
+          "Accept": "application/vnd.github+json",
+          "Content-Type": "application/json"
+        },
+        body: "{\"state\":\"closed\"}"
+      });
+    }).then(function (r) {
+      if (r.status === 403) { hasWrite = false; out.push("写权限缺失 403"); }
+      else if (r.status === 404) { hasWrite = true; out.push("写权限正常"); }
+      else { out.push("写权限未知 " + r.status); }
+
+      var text = out.join(" · ");
+      if (hasWrite === false) {
+        say("", "err", text +
+            ' · <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">去改权限</a>（Issues → Read and write，保存后立即生效）');
+      } else if (hasWrite === true) {
+        say(text + "，可以正常发布", "ok");
+      } else {
+        say(text, "err");
+      }
+    }).catch(function (e) {
+      say((e && e.message) || "检测失败", "err");
+    });
+  }
+
+  var diagBtn = document.getElementById("micro-diag");
+  if (diagBtn) diagBtn.addEventListener("click", diagnose);
 
   function send() {
     var text = input.value.trim();
