@@ -15,6 +15,7 @@
   <div class="micro-composer-foot">
     <span class="micro-count" id="micro-count">0 字</span>
     <span class="micro-msg" id="micro-msg" role="status" aria-live="polite"></span>
+    <a class="micro-gh" id="micro-gh" href="#" target="_blank" rel="noopener">或去 GitHub 新建</a>
     <button id="micro-send" class="micro-send" type="button">发布</button>
   </div>
   <p class="micro-tip">
@@ -50,7 +51,20 @@
   var tokenInput = document.getElementById("micro-token-input");
   var tokenSave = document.getElementById("micro-token-save");
   var tokenClear = document.getElementById("micro-token-clear");
+  var ghLink = document.getElementById("micro-gh");
   if (!box || !input || !sendBtn) return;
+
+  // 无密钥兜底：把当前草稿预填到 GitHub 的新建 Issue 页面
+  function syncGhLink() {
+    if (!ghLink) return;
+    var text = input.value.trim();
+    var url = "https://github.com/" + REPO + "/issues/new";
+    if (text) {
+      url += "?title=" + encodeURIComponent(text.replace(/\s+/g, " ").slice(0, 240)) +
+             "&body=" + encodeURIComponent(text);
+    }
+    ghLink.href = url;
+  }
 
   function getToken() {
     try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; }
@@ -87,7 +101,10 @@
   openBtn.addEventListener("click", function () {
     if (box.hidden) { openBox(); } else { closeBox(); }
   });
-  input.addEventListener("input", updateCount);
+  input.addEventListener("input", function () {
+    updateCount();
+    syncGhLink();
+  });
   input.addEventListener("keydown", function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); send(); }
   });
@@ -151,5 +168,6 @@
 
   if (location.hash === "#compose" || /[?&]compose\b/.test(location.search)) { openBox(); }
   updateCount();
+  syncGhLink();
 })();
 </script>

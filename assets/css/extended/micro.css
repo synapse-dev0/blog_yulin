@@ -115,6 +115,7 @@
   align-items: center;
   gap: 10px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 
 .micro-count {
@@ -154,7 +155,21 @@
 }
 
 .micro-composer-foot .micro-send {
+  margin-left: 0;
+}
+
+/* 无密钥兜底入口 */
+.micro-gh {
   margin-left: auto;
+  font-size: 12.5px;
+  color: var(--secondary);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.25);
+}
+
+.micro-gh:hover {
+  color: var(--primary);
+  border-bottom-color: rgba(255, 255, 255, 0.5);
 }
 
 .micro-send:hover:not(:disabled) {

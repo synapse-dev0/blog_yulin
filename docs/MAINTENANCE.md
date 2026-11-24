@@ -86,6 +86,8 @@ description: "一句话说明这篇文章解决什么问题（建议 60–100 �
 
 发布后同样走 Actions，1~2 分钟后出现在列表里。
 
+没配 Token 的浏览器也能用：点发布框右下角「或去 GitHub 新建」，会把当前草稿预填到 GitHub 的新建 Issue 页面，登录状态下点一下 Submit 即可。
+
 **方式二：开一个 Issue（手机上也能发）**
 
 在仓库里新建 Issue，**标题写想法正文**（正文留空时用标题）。提交后 `.github/workflows/microblog.yml` 会：
