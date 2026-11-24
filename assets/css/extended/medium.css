@@ -149,7 +149,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7); /* 数值越大越暗 */
+  background: rgba(0, 0, 0, 0.62); /* 数值越大越暗 */
   z-index: -1;
 }
 
