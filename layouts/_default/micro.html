@@ -10,6 +10,8 @@
 </div>
 {{- end }}
 
+{{ partial "micro-composer.html" . }}
+
 {{ range .Pages.ByDate.Reverse }}
 
 <div class="micro-post" id="{{ .File.TranslationBaseName }}">

@@ -32,11 +32,20 @@ jobs:
         env:
           # issue 内容只能通过 env 传入，不能直接插进 run 脚本
           ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
           DATE=$(TZ=Asia/Shanghai date +"%Y-%m-%d-%H%M")
           FILE="content/micro/${DATE}-${ISSUE_NUMBER}.md"
+
+          # 正文优先：博客页的发布框把完整内容放在 body，标题只当摘要（绕开标题 256 字上限）；
+          # 直接在 GitHub 上只写标题也照样能用。
+          CONTENT="$ISSUE_TITLE"
+          BODY_TRIMMED="$(printf '%s' "${ISSUE_BODY:-}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [ -n "$BODY_TRIMMED" ]; then
+            CONTENT="$ISSUE_BODY"
+          fi
 
           mkdir -p content/micro
           {
@@ -45,7 +54,7 @@ jobs:
             printf 'type: micro\n'
             printf 'draft: false\n'
             printf -- '---\n\n'
-            printf '%s\n' "$ISSUE_TITLE"
+            printf '%s\n' "$CONTENT"
           } > "$FILE"
 
           echo "MICRO_FILE=$FILE" >> "$GITHUB_ENV"

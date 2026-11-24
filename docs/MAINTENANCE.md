@@ -74,19 +74,29 @@ description: "一句话说明这篇文章解决什么问题（建议 60–100 �
 
 站点 `/micro/` 是短记录流，首页显示最近 5 条。它不进分类、不需要成文，适合一句话的观察、灵感和日常记录。
 
-有两种发布方式：
+有三条发布路径，后面两条都指向同一套自动化（Issue → 生成 md → 构建部署 → 关 Issue）。
 
-**方式一：开一个 Issue（手机上也能发）**
+**方式一：在博客的「想法」页直接发**
 
-在仓库里新建 Issue，**标题就是想法正文**。提交后 `.github/workflows/microblog.yml` 会：
+打开 <https://blog.yulin.ltd/micro/>，点右上角「✎ 写想法」（也可以直接访问 `/micro/#compose` 打开）。第一次用要在下面的输入框里粘一个 GitHub Token：
+
+- 去 <https://github.com/settings/personal-access-tokens/new> 建 fine-grained token：Repository access 只选 `blog_yulin`，Permissions → Issues 设成 `Read and write`，有效期按需（比如 90 天）。
+- Token 只保存在当前浏览器的 localStorage（键名 `blog_micro_token`），不进仓库、不经第三方；面板里的「清除」可以随时删掉。**不要在公用电脑上保存。**
+- 页面会把完整内容放进 Issue 的 body，标题取前 250 字作摘要，所以不受 Issue 标题的长度限制；⌘/Ctrl + Enter 可以直接发布。
+
+发布后同样走 Actions，1~2 分钟后出现在列表里。
+
+**方式二：开一个 Issue（手机上也能发）**
+
+在仓库里新建 Issue，**标题写想法正文**（正文留空时用标题）。提交后 `.github/workflows/microblog.yml` 会：
 
 1. 在 `content/micro/` 生成 `YYYY-MM-DD-HHMM-<issue号>.md`，时间取北京时间；
 2. 自动提交到 `main`，触发 Hugo 构建并部署；
 3. 部署完成后关闭这个 Issue。
 
-为防滥用，只有仓库所有者自己创建的 Issue 会触发这套流程。
+正文（body）不为空时优先用正文，标题只当摘要——博客页的发布框就是这么用的。为防滥用，只有仓库所有者自己创建的 Issue 会触发这套流程。
 
-**方式二：直接写文件**
+**方式三：直接写文件**
 
 在 `content/micro/` 下新建 `YYYY-MM-DD-HHMM.md`，front matter 只需要三行：
 

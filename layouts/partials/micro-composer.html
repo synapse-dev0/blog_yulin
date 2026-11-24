@@ -1,0 +1,155 @@
+{{- /*
+  想法页内的发布框。
+  没有后端：用浏览器 localStorage 里保存的 GitHub Token 调 REST API 建 Issue，
+  之后由 .github/workflows/microblog.yml 生成 content/micro/*.md 并部署。
+  Token 只存在本机浏览器，不会进仓库。
+*/ -}}
+<div class="micro-actions">
+  <button id="micro-open" class="micro-compose-btn" type="button" aria-expanded="false" aria-controls="micro-composer">
+    ✎ 写想法
+  </button>
+</div>
+
+<section class="micro-composer" id="micro-composer" hidden aria-label="写一条想法">
+  <textarea id="micro-input" rows="3" placeholder="一句话的想法、观察或灵感…（⌘/Ctrl + Enter 直接发布）"></textarea>
+  <div class="micro-composer-foot">
+    <span class="micro-count" id="micro-count">0 字</span>
+    <span class="micro-msg" id="micro-msg" role="status" aria-live="polite"></span>
+    <button id="micro-send" class="micro-send" type="button">发布</button>
+  </div>
+  <p class="micro-tip">
+    发布后会在仓库创建一个 Issue，GitHub Actions 生成页面，约 1~2 分钟后出现在下面的列表里。
+  </p>
+</section>
+
+<section class="micro-token" id="micro-token" hidden aria-label="GitHub Token 设置">
+  <p>
+    这条发布框只对仓库所有者有效，需要一个有 <code>Issues: Read and write</code> 权限的
+    GitHub Token（只保存在这台设备的浏览器里）。
+  </p>
+  <input id="micro-token-input" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+  <div class="micro-token-row">
+    <button id="micro-token-save" class="micro-send" type="button">保存</button>
+    <button id="micro-token-clear" class="micro-compose-btn" type="button">清除</button>
+    <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">去创建一个</a>
+  </div>
+</section>
+
+<script>
+(function () {
+  var REPO = {{ site.Params.giscus.repo | jsonify | safeJS }};
+  var KEY = "blog_micro_token";
+
+  var openBtn = document.getElementById("micro-open");
+  var box = document.getElementById("micro-composer");
+  var input = document.getElementById("micro-input");
+  var sendBtn = document.getElementById("micro-send");
+  var countEl = document.getElementById("micro-count");
+  var msgEl = document.getElementById("micro-msg");
+  var tokenPanel = document.getElementById("micro-token");
+  var tokenInput = document.getElementById("micro-token-input");
+  var tokenSave = document.getElementById("micro-token-save");
+  var tokenClear = document.getElementById("micro-token-clear");
+  if (!box || !input || !sendBtn) return;
+
+  function getToken() {
+    try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; }
+  }
+  function setToken(v) {
+    try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {}
+  }
+  function say(text, kind, html) {
+    msgEl.className = "micro-msg" + (kind ? " micro-msg-" + kind : "");
+    if (html) { msgEl.innerHTML = html; } else { msgEl.textContent = text || ""; }
+  }
+  function showToken(show) {
+    if (tokenPanel) tokenPanel.hidden = !show;
+    if (show && tokenInput) tokenInput.focus();
+  }
+  function updateCount() {
+    countEl.textContent = input.value.trim().length + " 字";
+  }
+  function openBox() {
+    box.hidden = false;
+    openBtn.setAttribute("aria-expanded", "true");
+    if (!getToken()) { showToken(true); }
+    input.focus();
+  }
+  function closeBox() {
+    box.hidden = true;
+    openBtn.setAttribute("aria-expanded", "false");
+  }
+  function makeTitle(text) {
+    var t = text.replace(/\s+/g, " ").trim();
+    return t.length <= 250 ? t : t.slice(0, 240) + "…";
+  }
+
+  openBtn.addEventListener("click", function () {
+    if (box.hidden) { openBox(); } else { closeBox(); }
+  });
+  input.addEventListener("input", updateCount);
+  input.addEventListener("keydown", function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); send(); }
+  });
+
+  tokenSave.addEventListener("click", function () {
+    var v = (tokenInput.value || "").trim();
+    if (!v) { say("先粘贴 Token", "err"); return; }
+    setToken(v);
+    tokenInput.value = "";
+    showToken(false);
+    say("Token 已保存在这台设备的浏览器里", "ok");
+  });
+  tokenClear.addEventListener("click", function () {
+    setToken("");
+    tokenInput.value = "";
+    say("已清除本机保存的 Token", "ok");
+  });
+
+  function send() {
+    var text = input.value.trim();
+    if (!text) { say("先写点什么", "err"); return; }
+    var tok = getToken();
+    if (!tok) { showToken(true); say("需要先填入 Token", "err"); return; }
+
+    sendBtn.disabled = true;
+    say("提交中…");
+
+    fetch("https://api.github.com/repos/" + REPO + "/issues", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + tok,
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ title: makeTitle(text), body: text })
+    }).then(function (r) {
+      return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; });
+    }).then(function (res) {
+      if (res.ok) {
+        var url = (res.data && res.data.html_url) || ("https://github.com/" + REPO + "/issues");
+        input.value = "";
+        updateCount();
+        say("", "ok", '已提交，1~2 分钟后出现在列表里 · <a href="' + url + '" target="_blank" rel="noopener">查看 Issue</a>');
+      } else if (res.status === 401) {
+        setToken("");
+        showToken(true);
+        say("Token 无效或已过期，请重新填写", "err");
+      } else if (res.status === 403) {
+        say("权限不足或触发限流：Token 需要这个仓库的 Issues 读写权限", "err");
+      } else {
+        say("提交失败：" + ((res.data && res.data.message) || res.status), "err");
+      }
+    }).catch(function () {
+      say("网络请求失败，可以先在 GitHub 上新建 Issue", "err");
+    }).then(function () {
+      sendBtn.disabled = false;
+    });
+  }
+
+  sendBtn.addEventListener("click", send);
+
+  if (location.hash === "#compose" || /[?&]compose\b/.test(location.search)) { openBox(); }
+  updateCount();
+})();
+</script>
