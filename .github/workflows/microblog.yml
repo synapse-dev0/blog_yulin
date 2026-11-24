@@ -75,6 +75,10 @@ jobs:
     name: Build and deploy
     needs: micro
     runs-on: ubuntu-latest
+    # 和 hugo.yml 共用 pages 组，避免两处同时发布互相打架
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
       contents: read
       pages: write
@@ -103,8 +107,17 @@ jobs:
         with:
           path: ./public
 
+      # 产物刚上传完立刻取偶发失败（"No artifacts named github-pages"），先等几秒
+      - name: Wait for artifact
+        run: sleep 10
+
       - name: Deploy to GitHub Pages
         id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Retry deploy
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
 
   close:

@@ -1,0 +1,150 @@
+{{- /*
+  待发布的想法：拉取仓库里还开着的 Issue（workflow 部署完会自动关闭），
+  渲染在列表顶部。Issue 关闭后标成「已发布」，刷新页面就由 Hugo 生成的正式条目替代。
+  用的是公开只读接口，不需要 Token。
+*/ -}}
+<div id="micro-pending-slot"></div>
+<script>
+(function () {
+  var REPO = {{ site.Params.giscus.repo | jsonify | safeJS }};
+  var OWNER = REPO.split("/")[0];
+  var slot = document.getElementById("micro-pending-slot");
+  if (!slot) return;
+
+  var API = "https://api.github.com/repos/" + REPO + "/issues?state=open&creator=" +
+            encodeURIComponent(OWNER) + "&per_page=10";
+  var POLL_MS = 15000;
+  var MAX_POLL_MS = 6 * 60 * 1000;
+  var startedAt = Date.now();
+  var timer = null;
+  var shown = {};
+  var publishedText = [];
+
+  document.querySelectorAll(".micro-content").forEach(function (el) {
+    var k = normalize(el.textContent).slice(0, 24);
+    if (k) { publishedText.push(k); }
+  });
+
+  function normalize(s) { return (s || "").replace(/\s+/g, ""); }
+
+  function alreadyPublished(text) {
+    var key = normalize(text).slice(0, 24);
+    if (!key) { return false; }
+    return publishedText.some(function (p) {
+      return p && (p === key || p.indexOf(key) === 0 || key.indexOf(p) === 0);
+    });
+  }
+
+  function formatTime(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) { return ""; }
+    return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  }
+
+  function buildItem(issue) {
+    var text = (issue.body || "").trim() || issue.title || "";
+
+    var item = document.createElement("div");
+    item.className = "micro-post micro-post-pending";
+
+    var head = document.createElement("div");
+    head.className = "micro-date micro-pending-head";
+    var chip = document.createElement("span");
+    chip.className = "micro-pending-chip";
+    chip.textContent = "待发布";
+    head.appendChild(chip);
+    var time = document.createElement("span");
+    time.textContent = formatTime(issue.created_at);
+    head.appendChild(time);
+    item.appendChild(head);
+
+    var content = document.createElement("div");
+    content.className = "micro-content";
+    content.textContent = text;
+    item.appendChild(content);
+
+    var meta = document.createElement("div");
+    meta.className = "micro-pending-meta";
+    var link = document.createElement("a");
+    link.href = issue.html_url || ("https://github.com/" + REPO + "/issues");
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "查看 Issue";
+    meta.appendChild(link);
+    var note = document.createElement("span");
+    note.className = "micro-pending-note";
+    var age = Date.now() - new Date(issue.created_at).getTime();
+    if (age > 10 * 60 * 1000) {
+      note.textContent = " · 超过 10 分钟仍未上线，可能部署失败（查看 Actions）";
+    } else {
+      note.textContent = " · 页面生成中，通常 1~2 分钟";
+    }
+    meta.appendChild(note);
+    item.appendChild(meta);
+
+    return item;
+  }
+
+  function addItem(issue) {
+    if (!issue || shown[issue.number]) { return; }
+    var text = (issue.body || "").trim() || issue.title || "";
+    if (alreadyPublished(text)) { return; }
+    var el = buildItem(issue);
+    slot.appendChild(el);
+    shown[issue.number] = { el: el, text: text, done: false };
+  }
+
+  function markPublished(entry) {
+    if (!entry || entry.done) { return; }
+    entry.done = true;
+    var chip = entry.el.querySelector(".micro-pending-chip");
+    if (chip) {
+      chip.textContent = "已发布";
+      chip.className = "micro-pending-chip is-published";
+    }
+    var note = entry.el.querySelector(".micro-pending-note");
+    if (note) { note.textContent = " · 刷新页面即可在列表里正常查看"; }
+    entry.el.className = "micro-post micro-post-pending is-done";
+  }
+
+  function sync(items) {
+    var open = {};
+    items.forEach(function (it) {
+      open[it.number] = true;
+      addItem(it);
+    });
+    var anyOpen = false;
+    Object.keys(shown).forEach(function (n) {
+      if (open[n]) { anyOpen = true; } else { markPublished(shown[n]); }
+    });
+    return anyOpen;
+  }
+
+  function load() {
+    fetch(API, { headers: { "Accept": "application/vnd.github+json" } })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        var items = (list || []).filter(function (x) { return !x.pull_request; });
+        var anyOpen = sync(items);
+        if (anyOpen && Date.now() - startedAt < MAX_POLL_MS) { schedule(); }
+      })
+      .catch(function () {});
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(load, POLL_MS);
+  }
+
+  document.addEventListener("micro:posted", function (e) {
+    addItem(e.detail);
+    schedule();
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) { load(); }
+  });
+
+  load();
+})();
+</script>

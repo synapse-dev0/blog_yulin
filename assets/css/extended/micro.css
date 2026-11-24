@@ -51,6 +51,63 @@
 }
 
 /* ============================= */
+/*  待发布的想法                   */
+/* ============================= */
+.micro-post-pending {
+  border-left: 2px solid rgba(182, 217, 122, 0.45);
+  padding-left: 12px;
+  margin-left: -14px;
+}
+
+.micro-pending-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.micro-pending-chip {
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: #b6d97a;
+  border: 1px solid rgba(182, 217, 122, 0.45);
+  background: rgba(182, 217, 122, 0.08);
+  animation: micro-pending-pulse 1.6s ease-in-out infinite;
+}
+
+.micro-pending-chip.is-published {
+  color: #9bb8e0;
+  border-color: rgba(155, 184, 224, 0.45);
+  background: rgba(155, 184, 224, 0.08);
+  animation: none;
+}
+
+.micro-post-pending .micro-content {
+  opacity: 0.82;
+}
+
+.micro-pending-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--secondary);
+}
+
+.micro-pending-meta a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+@keyframes micro-pending-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .micro-pending-chip { animation: none; }
+}
+
+/* ============================= */
 /*  想法页发布框                   */
 /* ============================= */
 .micro-actions {

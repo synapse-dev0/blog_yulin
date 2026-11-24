@@ -215,7 +215,10 @@
         input.value = "";
         updateCount();
         syncGhLink();
-        say("", "ok", '已提交，1~2 分钟后出现在列表里 · <a href="' + url + '" target="_blank" rel="noopener">查看 Issue</a>');
+        try {
+          document.dispatchEvent(new CustomEvent("micro:posted", { detail: res.data }));
+        } catch (e) {}
+        say("", "ok", '已提交，正在生成页面 · <a href="' + url + '" target="_blank" rel="noopener">查看 Issue</a>');
       } else if (res.status === 401) {
         setToken("");
         showToken(true);
