@@ -5,6 +5,9 @@
   Token 只存在本机浏览器，不会进仓库。
 */ -}}
 <div class="micro-actions">
+  <button id="micro-token-toggle" class="micro-compose-btn" type="button" aria-expanded="false" aria-controls="micro-token">
+    Token
+  </button>
   <button id="micro-open" class="micro-compose-btn" type="button" aria-expanded="false" aria-controls="micro-composer">
     ✎ 写想法
   </button>
@@ -43,6 +46,7 @@
   var KEY = "blog_micro_token";
 
   var openBtn = document.getElementById("micro-open");
+  var tokenToggle = document.getElementById("micro-token-toggle");
   var box = document.getElementById("micro-composer");
   var input = document.getElementById("micro-input");
   var sendBtn = document.getElementById("micro-send");
@@ -79,6 +83,7 @@
   }
   function showToken(show) {
     if (tokenPanel) tokenPanel.hidden = !show;
+    if (tokenToggle) tokenToggle.setAttribute("aria-expanded", show ? "true" : "false");
     if (show && tokenInput) tokenInput.focus();
   }
   function updateCount() {
@@ -102,6 +107,11 @@
   openBtn.addEventListener("click", function () {
     if (box.hidden) { openBox(); } else { closeBox(); }
   });
+  if (tokenToggle) {
+    tokenToggle.addEventListener("click", function () {
+      showToken(tokenPanel.hidden);
+    });
+  }
   input.addEventListener("input", function () {
     updateCount();
     syncGhLink();
