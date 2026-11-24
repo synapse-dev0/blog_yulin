@@ -141,19 +141,32 @@
       },
       body: JSON.stringify({ title: makeTitle(text), body: text })
     }).then(function (r) {
-      return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; });
+      return r.json().then(function (d) {
+        return { ok: r.ok, status: r.status, data: d, headers: r.headers };
+      }).catch(function () {
+        return { ok: r.ok, status: r.status, data: null, headers: r.headers };
+      });
     }).then(function (res) {
       if (res.ok) {
         var url = (res.data && res.data.html_url) || ("https://github.com/" + REPO + "/issues");
         input.value = "";
         updateCount();
+        syncGhLink();
         say("", "ok", '已提交，1~2 分钟后出现在列表里 · <a href="' + url + '" target="_blank" rel="noopener">查看 Issue</a>');
       } else if (res.status === 401) {
         setToken("");
         showToken(true);
         say("Token 无效或已过期，请重新填写", "err");
       } else if (res.status === 403) {
-        say("权限不足或触发限流：Token 需要这个仓库的 Issues 读写权限", "err");
+        var need = res.headers && res.headers.get ? res.headers.get("x-accepted-github-permissions") : "";
+        var detail = (res.data && res.data.message) || "Forbidden";
+        say("", "err", detail + (need ? "（需要 " + need + "）" : "") +
+            ' · <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">改 Token 权限</a>' +
+            "（Issues 设成 Read and write，改完不用重新生成）");
+      } else if (res.status === 404) {
+        say("仓库不可见：Token 的 Repository access 没勾上 blog_yulin", "err");
+      } else if (res.status === 410) {
+        say("这个仓库的 Issues 被关闭了，去 Settings → Features 打开", "err");
       } else {
         say("提交失败：" + ((res.data && res.data.message) || res.status), "err");
       }
