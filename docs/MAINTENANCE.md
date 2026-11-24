@@ -35,7 +35,7 @@ hugo --minify
 
 构建产物默认写入 `public/`，日常预览可使用 `hugo --minify --destination .build`。
 
-首次克隆记得带上子模块：`git clone --recurse-submodules https://github.com/sunyulin6351/blog_yulin.git`。
+首次克隆记得带上子模块：`git clone --recurse-submodules https://github.com/synapse-dev0/blog_yulin.git`。
 
 ## 内容约定
 

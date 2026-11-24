@@ -16,4 +16,4 @@ hiddenInRSS: true
 
 除了长文，我也会把碎片想法放在[想法](/micro/)里；所有文章按时间归档在[归档](/archives/)。
 
-如果你想订阅，可以使用 [RSS](/index.xml)；也可以在 [GitHub](https://github.com/sunyulin6351) 找到我。
+如果你想订阅，可以使用 [RSS](/index.xml)；也可以在 [GitHub](https://github.com/synapse-dev0) 找到我。
