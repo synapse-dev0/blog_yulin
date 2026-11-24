@@ -116,6 +116,12 @@ draft: false
 
 想法页由 `content/micro/_index.md` 的 cascade 统一设置：不进 `sitemap.xml`、`robotsNoIndex`、关闭评论；但它们仍会出现在 RSS 和站内搜索里。最早的两条记录文件名用的是 UTC 小时（`2026-03-05-0259.md` 在站点上显示 10:59），改文件名会同时改掉 URL 和评论映射，所以保持原样即可。
 
+**删除一条想法**
+
+想法页每条右侧有「删除」按钮，只在保存过 Token 的浏览器里出现，读者看不到。点确认后会创建一条标题为 `!delete <文件名>` 的 Issue，`microblog.yml` 会删掉 `content/micro/<文件名>.md`、提交并重新部署，完成后页面自动刷新。
+
+也可以手动做：开一个标题为 `!delete 2026-11-24-1702-27` 的 Issue（文件名不含 `.md`），或者直接在本地删文件提交。删除只是一次普通提交，历史里能找回来。
+
 ## 发布与部署
 
 推送到 `main` 就会触发 `.github/workflows/hugo.yml`：用 Hugo 0.170.0（extended）执行 `hugo --minify`，再把 `public/` 发布到 GitHub Pages。通常提交后一两分钟内生效；GitHub Pages 的 HTML 缓存约 10 分钟，看不到变化先强制刷新。

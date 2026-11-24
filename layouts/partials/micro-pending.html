@@ -20,11 +20,6 @@
   var shown = {};
   var publishedText = [];
 
-  document.querySelectorAll(".micro-content").forEach(function (el) {
-    var k = normalize(el.textContent).slice(0, 24);
-    if (k) { publishedText.push(k); }
-  });
-
   function normalize(s) { return (s || "").replace(/\s+/g, ""); }
 
   function alreadyPublished(text) {
@@ -124,7 +119,10 @@
     fetch(API, { headers: { "Accept": "application/vnd.github+json" } })
       .then(function (r) { return r.ok ? r.json() : []; })
       .then(function (list) {
-        var items = (list || []).filter(function (x) { return !x.pull_request; });
+        var items = (list || []).filter(function (x) {
+          // PR 和删除指令都不算「待发布」
+          return !x.pull_request && !/^!delete\s/.test(x.title || "");
+        });
         var anyOpen = sync(items);
         if (anyOpen && Date.now() - startedAt < MAX_POLL_MS) { schedule(); }
       })
@@ -145,6 +143,19 @@
     if (!document.hidden) { load(); }
   });
 
-  load();
+  // 列表由后面的 range 渲染，等 DOM 就绪再收集已有的正文
+  function init() {
+    document.querySelectorAll(".micro-content").forEach(function (el) {
+      var k = normalize(el.textContent).slice(0, 24);
+      if (k) { publishedText.push(k); }
+    });
+    load();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 })();
 </script>

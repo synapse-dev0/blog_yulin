@@ -28,7 +28,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Create micro post
+      - name: Create or delete micro post
         env:
           # issue 内容只能通过 env 传入，不能直接插进 run 脚本
           ISSUE_TITLE: ${{ github.event.issue.title }}
@@ -36,6 +36,22 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
+
+          # 删除指令：标题形如 "!delete 2026-11-24-1702-27"（来自想法页的删除按钮）
+          if printf '%s' "$ISSUE_TITLE" | grep -Eq '^!delete[[:space:]]+[A-Za-z0-9._-]+$'; then
+            NAME="$(printf '%s' "$ISSUE_TITLE" | sed -E 's/^!delete[[:space:]]+//')"
+            FILE="content/micro/${NAME}.md"
+            if [ -f "$FILE" ]; then
+              git rm --quiet -- "$FILE"
+              echo "MICRO_MODE=delete" >> "$GITHUB_ENV"
+            else
+              echo "文件不存在，跳过删除：$FILE"
+              echo "MICRO_MODE=none" >> "$GITHUB_ENV"
+            fi
+            echo "MICRO_FILE=$FILE" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
           DATE=$(TZ=Asia/Shanghai date +"%Y-%m-%d-%H%M")
           FILE="content/micro/${DATE}-${ISSUE_NUMBER}.md"
 
@@ -57,6 +73,7 @@ jobs:
             printf '%s\n' "$CONTENT"
           } > "$FILE"
 
+          echo "MICRO_MODE=create" >> "$GITHUB_ENV"
           echo "MICRO_FILE=$FILE" >> "$GITHUB_ENV"
 
       - name: Commit and push
@@ -66,8 +83,18 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- "$MICRO_FILE"
-          git commit -m "micro: ${ISSUE_TITLE}"
+
+          if [ "${MICRO_MODE}" = "delete" ]; then
+            git add -A -- "${MICRO_FILE}"
+            git commit -m "micro: 删除 ${MICRO_FILE#content/micro/}"
+          elif [ "${MICRO_MODE}" = "create" ]; then
+            git add -- "${MICRO_FILE}"
+            git commit -m "micro: ${ISSUE_TITLE}"
+          else
+            echo "没有需要提交的改动"
+            exit 0
+          fi
+
           git pull --rebase origin main
           git push origin HEAD:main
 

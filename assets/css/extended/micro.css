@@ -26,6 +26,10 @@
 }
 
 .micro-date {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
   font-size: 12px;
   color: #999;
   margin-bottom: 6px;
@@ -105,6 +109,51 @@
 
 @media (prefers-reduced-motion: reduce) {
   .micro-pending-chip { animation: none; }
+}
+
+/* ============================= */
+/*  条目删除（仅作者浏览器可见）    */
+/* ============================= */
+.micro-del-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.micro-del,
+.micro-del-ok,
+.micro-del-cancel {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  color: var(--secondary);
+  font-size: 11.5px;
+  line-height: 1.6;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.micro-del:hover,
+.micro-del-ok:hover {
+  color: #ff9a9a;
+  border-color: rgba(255, 130, 130, 0.45);
+}
+
+.micro-del-cancel:hover {
+  color: var(--primary);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.micro-del-msg {
+  font-size: 11.5px;
+  color: var(--secondary);
+}
+
+.micro-post.is-deleting .micro-content,
+.micro-post.is-deleting .micro-date a {
+  opacity: 0.5;
 }
 
 /* ============================= */

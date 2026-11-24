@@ -1,0 +1,126 @@
+{{- /*
+  想法页的删除入口。
+  只在保存过 Token 的浏览器里注入按钮，读者看不到。
+  点击后创建一条 "!delete <文件名>" 的 Issue，由 microblog workflow 删除文件并重新部署。
+*/ -}}
+<script>
+(function () {
+  var REPO = {{ site.Params.giscus.repo | jsonify | safeJS }};
+  var KEY = "blog_micro_token";
+  var API = "https://api.github.com/repos/" + REPO + "/issues";
+  var tok = "";
+  try { tok = localStorage.getItem(KEY) || ""; } catch (e) {}
+  if (!tok) { return; }
+
+  var H = {
+    "Authorization": "Bearer " + tok,
+    "Accept": "application/vnd.github+json",
+    "Content-Type": "application/json"
+  };
+
+  function span(text, cls) {
+    var el = document.createElement("span");
+    el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function button(text, cls) {
+    var el = document.createElement("button");
+    el.type = "button";
+    el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function createIssue(title) {
+    return fetch(API, {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({ title: title, body: "" })
+    }).then(function (r) {
+      return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; });
+    });
+  }
+
+  function waitClosed(num, post, tries) {
+    tries = tries || 0;
+    if (tries > 40) {
+      var bar = post.querySelector(".micro-del-bar");
+      if (bar) {
+        bar.innerHTML = "";
+        bar.appendChild(span("部署可能失败，去 Actions 看看", "micro-del-msg"));
+      }
+      return;
+    }
+    setTimeout(function () {
+      fetch(API + "/" + num, { headers: H })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.state === "closed") { location.reload(); }
+          else { waitClosed(num, post, tries + 1); }
+        })
+        .catch(function () { waitClosed(num, post, tries + 1); });
+    }, 8000);
+  }
+
+  function renderIdle(post, id, bar) {
+    bar.innerHTML = "";
+    var del = button("删除", "micro-del");
+    del.title = "删除这条想法（会提交到仓库并重新部署）";
+    del.addEventListener("click", function () { renderConfirm(post, id, bar); });
+    bar.appendChild(del);
+  }
+
+  function renderConfirm(post, id, bar) {
+    bar.innerHTML = "";
+    bar.appendChild(span("确定删除？", "micro-del-msg"));
+    var ok = button("确认", "micro-del-ok");
+    var cancel = button("取消", "micro-del-cancel");
+    bar.appendChild(ok);
+    bar.appendChild(cancel);
+
+    cancel.addEventListener("click", function () { renderIdle(post, id, bar); });
+    ok.addEventListener("click", function () {
+      bar.innerHTML = "";
+      bar.appendChild(span("提交中…", "micro-del-msg"));
+      createIssue("!delete " + id).then(function (res) {
+        if (res.ok && res.data && res.data.number) {
+          post.classList.add("is-deleting");
+          bar.innerHTML = "";
+          bar.appendChild(span("已提交删除，等待部署…", "micro-del-msg"));
+          waitClosed(res.data.number, post);
+        } else if (res.status === 401) {
+          bar.innerHTML = "";
+          bar.appendChild(span("Token 失效，请重新保存", "micro-del-msg"));
+        } else {
+          bar.innerHTML = "";
+          bar.appendChild(span((res.data && res.data.message) || ("失败 " + res.status), "micro-del-msg"));
+        }
+      }).catch(function () {
+        bar.innerHTML = "";
+        bar.appendChild(span("网络错误", "micro-del-msg"));
+      });
+    });
+  }
+
+  function init() {
+    document.querySelectorAll(".micro-post").forEach(function (post) {
+      var id = post.id;
+      if (!id) { return; }
+      var date = post.querySelector(".micro-date");
+      if (!date) { return; }
+      var bar = span("", "micro-del-bar");
+      date.appendChild(bar);
+      renderIdle(post, id, bar);
+    });
+  }
+
+  // 这个 partial 在列表之前渲染，要等 DOM 就绪
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
