@@ -1,13 +1,18 @@
 {{- /*
   想法页的删除入口。
   只在保存过 Token 的浏览器里注入按钮，读者看不到。
-  点击后创建一条 "!delete <文件名>" 的 Issue，由 microblog workflow 删除文件并重新部署。
+  点删除后先在本地立即隐藏（localStorage 记录，30 分钟内有效），
+  同时创建一条 "!delete <文件名>" 的 Issue，由 microblog workflow 删文件并部署。
+  Issue 关闭（部署完成）后刷新页面，条目就真的没了。
 */ -}}
 <script>
 (function () {
   var REPO = {{ site.Params.giscus.repo | jsonify | safeJS }};
   var KEY = "blog_micro_token";
+  var HIDE_KEY = "blog_micro_hidden";
   var API = "https://api.github.com/repos/" + REPO + "/issues";
+  var MAX_TRIES = 40;
+
   var tok = "";
   try { tok = localStorage.getItem(KEY) || ""; } catch (e) {}
   if (!tok) { return; }
@@ -33,6 +38,52 @@
     return el;
   }
 
+  function readHidden() {
+    var map = {};
+    try { map = JSON.parse(localStorage.getItem(HIDE_KEY) || "{}") || {}; } catch (e) { map = {}; }
+    var now = Date.now();
+    Object.keys(map).forEach(function (k) {
+      if (!map[k] || now - map[k] > 30 * 60 * 1000) { delete map[k]; }
+    });
+    return map;
+  }
+
+  function writeHidden(map) {
+    try { localStorage.setItem(HIDE_KEY, JSON.stringify(map)); } catch (e) {}
+  }
+
+  function hideRow(id) {
+    if (!id) { return; }
+    var el = document.getElementById(id);
+    if (el) { el.style.display = "none"; el.setAttribute("data-deleting", "1"); }
+    var map = readHidden();
+    map[id] = Date.now();
+    writeHidden(map);
+  }
+
+  function unhideRow(id) {
+    if (!id) { return; }
+    var el = document.getElementById(id);
+    if (el) { el.style.display = ""; el.removeAttribute("data-deleting"); }
+    var map = readHidden();
+    delete map[id];
+    writeHidden(map);
+  }
+
+  function clearHidden(id) {
+    var map = readHidden();
+    delete map[id];
+    writeHidden(map);
+  }
+
+  function toast(msg, kind) {
+    var t = document.createElement("div");
+    t.className = "micro-toast" + (kind ? " micro-toast-" + kind : "");
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 7000);
+  }
+
   function createIssue(title) {
     return fetch(API, {
       method: "POST",
@@ -43,24 +94,25 @@
     });
   }
 
-  function waitClosed(num, post, tries) {
+  function waitClosed(num, id, tries) {
     tries = tries || 0;
-    if (tries > 40) {
-      var bar = post.querySelector(".micro-del-bar");
-      if (bar) {
-        bar.innerHTML = "";
-        bar.appendChild(span("部署可能失败，去 Actions 看看", "micro-del-msg"));
-      }
+    if (tries > MAX_TRIES) {
+      unhideRow(id);
+      toast("删除没完成（超过 5 分钟），可能部署失败，去 Actions 看看", "err");
       return;
     }
     setTimeout(function () {
       fetch(API + "/" + num, { headers: H })
         .then(function (r) { return r.json(); })
         .then(function (d) {
-          if (d && d.state === "closed") { location.reload(); }
-          else { waitClosed(num, post, tries + 1); }
+          if (d && d.state === "closed") {
+            clearHidden(id);
+            location.reload();
+          } else {
+            waitClosed(num, id, tries + 1);
+          }
         })
-        .catch(function () { waitClosed(num, post, tries + 1); });
+        .catch(function () { waitClosed(num, id, tries + 1); });
     }, 8000);
   }
 
@@ -82,29 +134,35 @@
 
     cancel.addEventListener("click", function () { renderIdle(post, id, bar); });
     ok.addEventListener("click", function () {
-      bar.innerHTML = "";
-      bar.appendChild(span("提交中…", "micro-del-msg"));
+      // 先本地隐藏，页面立刻见效
+      hideRow(id);
+      toast("已提交删除，正在同步（通常 1 分钟内）");
+
       createIssue("!delete " + id).then(function (res) {
         if (res.ok && res.data && res.data.number) {
-          post.classList.add("is-deleting");
-          bar.innerHTML = "";
-          bar.appendChild(span("已提交删除，等待部署…", "micro-del-msg"));
-          waitClosed(res.data.number, post);
-        } else if (res.status === 401) {
-          bar.innerHTML = "";
-          bar.appendChild(span("Token 失效，请重新保存", "micro-del-msg"));
+          waitClosed(res.data.number, id);
         } else {
-          bar.innerHTML = "";
-          bar.appendChild(span((res.data && res.data.message) || ("失败 " + res.status), "micro-del-msg"));
+          unhideRow(id);
+          if (res.status === 401) {
+            toast("Token 失效，删除未提交", "err");
+          } else {
+            toast("删除失败：" + ((res.data && res.data.message) || res.status), "err");
+          }
         }
       }).catch(function () {
-        bar.innerHTML = "";
-        bar.appendChild(span("网络错误", "micro-del-msg"));
+        unhideRow(id);
+        toast("网络错误，删除未提交", "err");
       });
     });
   }
 
   function init() {
+    var hidden = readHidden();
+    Object.keys(hidden).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) { el.style.display = "none"; el.setAttribute("data-deleting", "1"); }
+    });
+
     document.querySelectorAll(".micro-post").forEach(function (post) {
       var id = post.id;
       if (!id) { return; }

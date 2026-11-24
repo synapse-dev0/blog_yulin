@@ -156,6 +156,30 @@
   opacity: 0.5;
 }
 
+/* 删除后的提示 */
+.micro-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 9999;
+  max-width: min(92vw, 420px);
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(28, 28, 30, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  color: var(--primary);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.micro-toast-err {
+  border-color: rgba(255, 130, 130, 0.45);
+  color: #ffb4b4;
+}
+
 /* ============================= */
 /*  想法页发布框                   */
 /* ============================= */

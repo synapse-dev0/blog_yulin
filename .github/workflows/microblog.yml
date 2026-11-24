@@ -85,7 +85,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           if [ "${MICRO_MODE}" = "delete" ]; then
-            git add -A -- "${MICRO_FILE}"
+            # 上一步 git rm 已经把删除暂存好了，这里不能再 git add（路径已不存在会报 pathspec）
             git commit -m "micro: 删除 ${MICRO_FILE#content/micro/}"
           elif [ "${MICRO_MODE}" = "create" ]; then
             git add -- "${MICRO_FILE}"
@@ -134,14 +134,15 @@ jobs:
         with:
           path: ./public
 
-      # 产物刚上传完立刻取偶发失败（"No artifacts named github-pages"），先等几秒
-      - name: Wait for artifact
-        run: sleep 10
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
         continue-on-error: true
+
+      # 产物刚上传完时偶发取不到（"Found 0 artifact(s)"），失败后稍等再试一次
+      - name: Wait before retry
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 15
 
       - name: Retry deploy
         if: steps.deployment.outcome == 'failure'
