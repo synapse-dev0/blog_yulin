@@ -158,11 +158,19 @@
         showToken(true);
         say("Token 无效或已过期，请重新填写", "err");
       } else if (res.status === 403) {
-        var need = res.headers && res.headers.get ? res.headers.get("x-accepted-github-permissions") : "";
         var detail = (res.data && res.data.message) || "Forbidden";
-        say("", "err", detail + (need ? "（需要 " + need + "）" : "") +
-            ' · <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">改 Token 权限</a>' +
-            "（Issues 设成 Read and write，改完不用重新生成）");
+        var hint = "";
+        if (/not accessible/i.test(detail)) {
+          hint = " · 这个 Token 对该仓库没有 Issues 写权限";
+        } else if (/rate limit/i.test(detail)) {
+          hint = " · 触发限流，等一分钟再试";
+        } else if (/archived/i.test(detail)) {
+          hint = " · 仓库已归档，变成只读";
+        } else if (/saml|sso/i.test(detail)) {
+          hint = " · 组织开启了 SSO，需要先授权 Token";
+        }
+        say("", "err", detail + hint +
+            ' · <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">改 Token 权限</a>');
       } else if (res.status === 404) {
         say("仓库不可见：Token 的 Repository access 没勾上 blog_yulin", "err");
       } else if (res.status === 410) {
